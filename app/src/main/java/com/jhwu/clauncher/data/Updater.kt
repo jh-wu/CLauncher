@@ -1,17 +1,10 @@
 package com.jhwu.clauncher.data
 
-import android.app.Activity
-import android.app.PendingIntent
-import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageInstaller
 import android.net.Uri
-import android.os.Bundle
 import android.provider.Settings
-import android.util.Log
-import androidx.core.content.IntentCompat
-import com.jhwu.clauncher.MainActivity
+import androidx.core.content.FileProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -68,7 +61,11 @@ object Updater {
         }
     }
 
-    /** Downloads the update and hands it to the system installer, which asks the user to confirm. */
+    /**
+     * Downloads the update and opens it in the system installer. Its last screen has an "Open"
+     * button, which is the only way back into CLauncher: Android 12 doesn't let an app that was
+     * just replaced start itself again.
+     */
     suspend fun install(context: Context, update: UpdateState.Available) {
         if (!context.packageManager.canRequestPackageInstalls()) {
             context.startActivity(
@@ -81,41 +78,25 @@ object Updater {
         _state.value = UpdateState.Downloading(0f)
         try {
             withContext(Dispatchers.IO) {
-                val apk = File(context.cacheDir, APK_NAME)
+                val dir = File(context.cacheDir, "updates").apply { mkdirs() }
+                dir.listFiles()?.forEach { it.delete() }
+                val apk = File(dir, "CLauncher-build-${update.build}.apk")
                 download(update.apkUrl, apk) { _state.value = UpdateState.Downloading(it) }
                 _state.value = UpdateState.Installing
-                commitInstall(context, apk)
+                openInstaller(context, apk)
             }
         } catch (e: Exception) {
             _state.value = UpdateState.Failed("Update failed (${e.message ?: e.javaClass.simpleName})")
         }
     }
 
-    internal fun onInstallFailed(message: String) {
-        _state.value = UpdateState.Failed(message)
-    }
-
-    private fun commitInstall(context: Context, apk: File) {
-        val installer = context.packageManager.packageInstaller
-        val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL)
-            .apply { setAppPackageName(context.packageName) }
-        val sessionId = installer.createSession(params)
-        installer.openSession(sessionId).use { session ->
-            session.openWrite(APK_NAME, 0, apk.length()).use { out ->
-                apk.inputStream().use { it.copyTo(out) }
-                session.fsync(out)
-            }
-            // An activity, not a broadcast: the installer is a system process, so it may start it even
-            // after the update has killed CLauncher, which lets the new version reopen itself.
-            val callback = PendingIntent.getActivity(
-                context,
-                sessionId,
-                Intent(context, InstallResultActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-                // Mutable so the installer can add its result extras; the intent is explicit.
-                PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
-            )
-            session.commit(callback.intentSender)
-        }
+    private fun openInstaller(context: Context, apk: File) {
+        val uri = FileProvider.getUriForFile(context, "${context.packageName}.updates", apk)
+        context.startActivity(
+            Intent(Intent.ACTION_VIEW)
+                .setDataAndType(uri, "application/vnd.android.package-archive")
+                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK),
+        )
     }
 
     private fun fetch(url: String): String {
@@ -153,44 +134,5 @@ object Updater {
         connectTimeout = 15_000
         readTimeout = 30_000
         instanceFollowRedirects = true
-    }
-}
-
-/** Receives the result of the install session started by [Updater.install]. Shows no UI of its own. */
-class InstallResultActivity : Activity() {
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        val intent = intent
-        when (val status = intent.getIntExtra(PackageInstaller.EXTRA_STATUS, PackageInstaller.STATUS_FAILURE)) {
-            PackageInstaller.STATUS_PENDING_USER_ACTION -> {
-                IntentCompat.getParcelableExtra(intent, Intent.EXTRA_INTENT, Intent::class.java)
-                    ?.let { startActivity(it) }
-            }
-            // The update replaced and stopped CLauncher; open the new version.
-            PackageInstaller.STATUS_SUCCESS -> startActivity(
-                Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-            )
-            PackageInstaller.STATUS_FAILURE_ABORTED -> Updater.onInstallFailed("Update cancelled")
-            PackageInstaller.STATUS_FAILURE_CONFLICT, PackageInstaller.STATUS_FAILURE_INCOMPATIBLE ->
-                Updater.onInstallFailed(
-                    "This version is signed with a different key. Uninstall CLauncher and install the new APK once by hand",
-                )
-            else -> Updater.onInstallFailed(
-                intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE) ?: "Update failed (status $status)",
-            )
-        }
-        finish()
-    }
-}
-
-/** Reopens CLauncher once it has been updated. Android allows this only with "Display over other apps". */
-class UpdatedReceiver : BroadcastReceiver() {
-    override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action != Intent.ACTION_MY_PACKAGE_REPLACED || !Settings.canDrawOverlays(context)) return
-        try {
-            context.startActivity(Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-        } catch (e: Exception) {
-            Log.w("UpdatedReceiver", "Couldn't reopen CLauncher", e)
-        }
     }
 }

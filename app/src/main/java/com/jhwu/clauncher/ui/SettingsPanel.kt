@@ -30,14 +30,9 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import android.content.Intent
-import android.net.Uri
-import android.provider.Settings
-import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.tv.material3.ListItem
 import coil3.compose.AsyncImage
@@ -270,7 +265,7 @@ private fun LazyListScope.aboutPage(viewModel: HomeViewModel, state: UpdateState
             UpdateState.UpToDate -> "Check for updates" to "You have the latest version"
             is UpdateState.Available -> "Install update" to "Build ${s.build} is available"
             is UpdateState.Downloading -> "Downloading…" to "${(s.progress * 100).roundToInt()}%"
-            UpdateState.Installing -> "Installing…" to "Confirm on the next screen"
+            UpdateState.Installing -> "Install update" to "Choose Install, then Open when it's done"
             is UpdateState.Failed -> "Check for updates" to s.message
         }
         ListItem(
@@ -278,46 +273,13 @@ private fun LazyListScope.aboutPage(viewModel: HomeViewModel, state: UpdateState
             onClick = {
                 when (val s = state) {
                     is UpdateState.Available -> viewModel.installUpdate(s)
-                    UpdateState.Checking, is UpdateState.Downloading, UpdateState.Installing -> Unit
+                    UpdateState.Checking, is UpdateState.Downloading -> Unit
                     else -> viewModel.checkForUpdates()
                 }
             },
             headlineContent = { Text(title) },
             supportingContent = detail?.let { { Text(it) } },
             modifier = Modifier.focusRequester(firstItem),
-        )
-    }
-    item(key = "about-reopen") {
-        val context = LocalContext.current
-        var allowed by remember { mutableStateOf(Settings.canDrawOverlays(context)) }
-        // Re-check when coming back from the system settings screen.
-        LifecycleResumeEffect(Unit) {
-            allowed = Settings.canDrawOverlays(context)
-            onPauseOrDispose {}
-        }
-        var hint by remember { mutableStateOf<String?>(null) }
-        ListItem(
-            selected = false,
-            onClick = {
-                val packageUri = Uri.parse("package:${context.packageName}")
-                val opened = listOf(
-                    Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, packageUri),
-                    Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION),
-                ).any { runCatching { context.startActivity(it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }.isSuccess }
-                if (!opened) {
-                    hint = "Not available on this TV. With adb: appops set ${context.packageName} SYSTEM_ALERT_WINDOW allow"
-                }
-            },
-            headlineContent = { Text("Reopen after updates") },
-            supportingContent = {
-                Text(
-                    hint ?: if (allowed) {
-                        "On"
-                    } else {
-                        "Off. Press OK and allow \"Display over other apps\" for CLauncher"
-                    },
-                )
-            },
         )
     }
 }

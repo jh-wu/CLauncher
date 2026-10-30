@@ -10,9 +10,6 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
-    <!-- Optional. Android only lets an app start itself from the background, e.g. right after
-         it was updated, while the user has granted it "Display over other apps". -->
-    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
     <!-- Android 11+ package visibility: only the intents a launcher needs, not QUERY_ALL_PACKAGES. -->
     <queries>
@@ -65,19 +62,15 @@
             </intent-filter>
         </activity>
 
-        <activity
-            android:name=".data.InstallResultActivity"
-            android:excludeFromRecents="true"
+        <!-- Hands downloaded updates to the system installer, whose last screen offers "Open". -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.updates"
             android:exported="false"
-            android:noHistory="true"
-            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
-
-        <receiver
-            android:name=".data.UpdatedReceiver"
-            android:exported="false">
-            <intent-filter>
-                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
-            </intent-filter>
-        </receiver>
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/update_paths" />
+        </provider>
     </application>
 </manifest>
