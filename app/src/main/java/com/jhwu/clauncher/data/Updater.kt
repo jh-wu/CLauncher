@@ -1,13 +1,15 @@
 package com.jhwu.clauncher.data
 
+import android.app.Activity
 import android.app.PendingIntent
-import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageInstaller
 import android.net.Uri
+import android.os.Bundle
 import android.provider.Settings
 import androidx.core.content.IntentCompat
+import com.jhwu.clauncher.MainActivity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -101,10 +103,12 @@ object Updater {
                 apk.inputStream().use { it.copyTo(out) }
                 session.fsync(out)
             }
-            val callback = PendingIntent.getBroadcast(
+            // An activity, not a broadcast: the installer is a system process, so it may start it even
+            // after the update has killed CLauncher, which lets the new version reopen itself.
+            val callback = PendingIntent.getActivity(
                 context,
                 sessionId,
-                Intent(context, InstallResultReceiver::class.java),
+                Intent(context, InstallResultActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
                 // Mutable so the installer can add its result extras; the intent is explicit.
                 PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
             )
@@ -150,16 +154,20 @@ object Updater {
     }
 }
 
-/** Receives the result of the install session started by [Updater.install]. */
-class InstallResultReceiver : BroadcastReceiver() {
-    override fun onReceive(context: Context, intent: Intent) {
+/** Receives the result of the install session started by [Updater.install]. Shows no UI of its own. */
+class InstallResultActivity : Activity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        val intent = intent
         when (val status = intent.getIntExtra(PackageInstaller.EXTRA_STATUS, PackageInstaller.STATUS_FAILURE)) {
             PackageInstaller.STATUS_PENDING_USER_ACTION -> {
                 IntentCompat.getParcelableExtra(intent, Intent.EXTRA_INTENT, Intent::class.java)
-                    ?.let { context.startActivity(it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+                    ?.let { startActivity(it) }
             }
-            // On success the system restarts CLauncher with the new version.
-            PackageInstaller.STATUS_SUCCESS -> Unit
+            // The update replaced and stopped CLauncher; open the new version.
+            PackageInstaller.STATUS_SUCCESS -> startActivity(
+                Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            )
             PackageInstaller.STATUS_FAILURE_ABORTED -> Updater.onInstallFailed("Update cancelled")
             PackageInstaller.STATUS_FAILURE_CONFLICT, PackageInstaller.STATUS_FAILURE_INCOMPATIBLE ->
                 Updater.onInstallFailed(
@@ -169,5 +177,6 @@ class InstallResultReceiver : BroadcastReceiver() {
                 intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE) ?: "Update failed (status $status)",
             )
         }
+        finish()
     }
 }

@@ -62,8 +62,11 @@
             </intent-filter>
         </activity>
 
-        <receiver
-            android:name=".data.InstallResultReceiver"
-            android:exported="false" />
+        <activity
+            android:name=".data.InstallResultActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
     </application>
 </manifest>
