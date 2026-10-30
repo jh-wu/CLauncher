@@ -30,7 +30,7 @@ jobs:
             echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
             echo "RELEASE_KEYSTORE_FILE=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
           else
-            echo "::warning::RELEASE_KEYSTORE_BASE64 is not set, so the release APK uses a throwaway key and in-app updates won't install over it."
+            [ -f app/debug.keystore ] || echo "::warning::No app/debug.keystore and no RELEASE_KEYSTORE_BASE64, so this APK uses a throwaway key and won't install over earlier builds."
           fi
 
       - name: Build

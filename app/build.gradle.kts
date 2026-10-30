@@ -18,10 +18,20 @@ android {
         versionName = "0.2.$buildNumber"
     }
 
-    // Release builds need the same key every time, or Android refuses to install an update over them.
-    // CI decodes the keystore from repository secrets; without it, release falls back to the debug key.
+    // Builds need the same key every time, or Android refuses to install an update over them.
+    // A fixed debug key in app/debug.keystore (as in tubeTV and iyftv) is used when present.
+    // A private release key from repository secrets takes over when one is configured.
+    val fixedDebugKeystore = file("debug.keystore")
     val releaseKeystore = System.getenv("RELEASE_KEYSTORE_FILE")?.let { file(it) }
     signingConfigs {
+        if (fixedDebugKeystore.exists()) {
+            getByName("debug") {
+                storeFile = fixedDebugKeystore
+                storePassword = "android"
+                keyAlias = "androiddebugkey"
+                keyPassword = "android"
+            }
+        }
         if (releaseKeystore != null) {
             create("release") {
                 storeFile = releaseKeystore
