@@ -145,15 +145,14 @@ fun HomeScreen(viewModel: HomeViewModel = viewModel()) {
             onTileFocused = { lastFocusedPackage = it },
         )
 
-        // Photo credit, which the photos' licenses require.
-        val credit = when (val bg = background) {
-            Background.Daily -> dailyPhoto?.let { it.title to it.credit }
-            is Background.Bundled -> viewModel.bundledPhotos.firstOrNull { it.asset == bg.asset }
-                ?.let { it.title to it.credit }
+        // Where the photo was taken. The full credit is in Settings → Background.
+        val caption = when (val bg = background) {
+            Background.Daily -> dailyPhoto?.location
+            is Background.Bundled -> viewModel.bundledPhotos.firstOrNull { it.asset == bg.asset }?.location
             else -> null
         }
         AnimatedVisibility(
-            visible = credit != null && !scrolled && movingPackage == null,
+            visible = caption != null && !scrolled && movingPackage == null,
             enter = fadeIn(),
             exit = fadeOut(),
             modifier = Modifier
@@ -161,7 +160,7 @@ fun HomeScreen(viewModel: HomeViewModel = viewModel()) {
                 .padding(top = 30.dp, start = 58.dp)
                 .fillMaxWidth(0.55f),
         ) {
-            if (credit != null) PhotoCredit(title = credit.first, credit = credit.second)
+            if (caption != null) PhotoCaption(caption)
         }
 
         AnimatedVisibility(
@@ -344,23 +343,14 @@ private fun TopBar(onOpenSettings: () -> Unit, onLeave: () -> Unit) {
 }
 
 @Composable
-private fun PhotoCredit(title: String, credit: String) {
-    Column {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleSmall,
-            color = Color.White.copy(alpha = 0.9f),
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-        Text(
-            text = credit,
-            style = MaterialTheme.typography.bodySmall,
-            color = Color.White.copy(alpha = 0.7f),
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-    }
+private fun PhotoCaption(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.bodyMedium,
+        color = Color.White.copy(alpha = 0.55f),
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+    )
 }
 
 @Composable

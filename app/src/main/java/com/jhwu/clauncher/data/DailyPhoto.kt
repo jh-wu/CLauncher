@@ -17,7 +17,24 @@ import java.time.LocalDate
 import java.time.ZoneOffset
 
 /** A downloaded photo of the day and the credit its license requires us to show. */
-data class DailyPhoto(val date: String, val title: String, val credit: String, val file: File)
+data class DailyPhoto(val date: String, val title: String, val credit: String, val file: File) {
+    /** A short caption: the place if the description names one, else the start of the title. */
+    val location: String get() = shortCaption(title)
+}
+
+internal fun shortCaption(description: String): String {
+    val sentence = description.substringBefore(". ").trim().trimEnd('.')
+    val parts = sentence.split(", ")
+    // The place in the first clause: "Sunrise in Pieniny mountains" -> "Pieniny mountains",
+    // "Carcassonne during the blue hour" -> "Carcassonne".
+    val place = (Regex("\\b(?:in|at|near|over|from|of|on)\\s+([A-Z].*)$").find(parts.first())?.groupValues?.get(1)
+        ?: parts.first())
+        .split(Regex(" (?:during|with|from|seen|taken|after|before|in the|on the|at the)\\b")).first()
+    // Plus the last capitalised clause, usually the country or region.
+    val region = parts.drop(1).lastOrNull { it.firstOrNull()?.isUpperCase() == true }
+    val short = listOfNotNull(place, region).joinToString(", ")
+    return if (short.length <= 48) short else short.take(47).substringBeforeLast(' ') + "…"
+}
 
 /**
  * Wikimedia Commons' "Picture of the day", via the Wikimedia featured-content feed.

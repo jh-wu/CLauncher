@@ -171,7 +171,13 @@ private fun LazyListScope.backgroundPage(
             selected = background == Background.Daily,
             onClick = { viewModel.setDailyBackground() },
             headlineContent = { Text("Photo of the day") },
-            supportingContent = { Text("A new photo every day from Wikimedia Commons") },
+            supportingContent = {
+                val today = viewModel.dailyPhoto.collectAsStateWithLifecycle().value
+                Text(
+                    if (background == Background.Daily && today != null) today.credit
+                    else "A new photo every day from Wikimedia Commons",
+                )
+            },
             modifier = Modifier.focusRequester(firstItem),
         )
     }
@@ -179,7 +185,8 @@ private fun LazyListScope.backgroundPage(
         ListItem(
             selected = background == Background.Bundled(photo.asset),
             onClick = { viewModel.setBundledBackground(photo.asset) },
-            headlineContent = { Text(photo.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+            headlineContent = { Text(photo.location, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+            supportingContent = { Text(photo.credit, maxLines = 2, overflow = TextOverflow.Ellipsis) },
             leadingContent = {
                 AsyncImage(
                     model = photo.uri,
