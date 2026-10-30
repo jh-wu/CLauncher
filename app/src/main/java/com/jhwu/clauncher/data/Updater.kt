@@ -2,12 +2,14 @@ package com.jhwu.clauncher.data
 
 import android.app.Activity
 import android.app.PendingIntent
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageInstaller
 import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
+import android.util.Log
 import androidx.core.content.IntentCompat
 import com.jhwu.clauncher.MainActivity
 import kotlinx.coroutines.Dispatchers
@@ -178,5 +180,17 @@ class InstallResultActivity : Activity() {
             )
         }
         finish()
+    }
+}
+
+/** Reopens CLauncher once it has been updated. Android allows this only with "Display over other apps". */
+class UpdatedReceiver : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent) {
+        if (intent.action != Intent.ACTION_MY_PACKAGE_REPLACED || !Settings.canDrawOverlays(context)) return
+        try {
+            context.startActivity(Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        } catch (e: Exception) {
+            Log.w("UpdatedReceiver", "Couldn't reopen CLauncher", e)
+        }
     }
 }
