@@ -6,6 +6,9 @@ on:
   pull_request:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -22,9 +25,25 @@ jobs:
       - name: Build
         run: ./gradlew assembleDebug assembleRelease
 
+      - name: Collect APKs
+        run: |
+          mkdir dist
+          cp app/build/outputs/apk/release/app-release.apk dist/CLauncher.apk
+          cp app/build/outputs/apk/debug/app-debug.apk dist/CLauncher-debug.apk
+
       - uses: actions/upload-artifact@v4
         with:
           name: clauncher-apk
-          path: |
-            app/build/outputs/apk/debug/*.apk
-            app/build/outputs/apk/release/*.apk
+          path: dist/*.apk
+
+      # Every push to main becomes a GitHub Release, so the APK is one click away.
+      - name: Publish release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "build-${{ github.run_number }}" dist/CLauncher.apk dist/CLauncher-debug.apk \
+            --title "CLauncher build ${{ github.run_number }}" \
+            --notes "Built from ${{ github.sha }}. Install CLauncher.apk on your TV." \
+            --target "${{ github.sha }}" \
+            --latest

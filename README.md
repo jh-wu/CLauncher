@@ -11,11 +11,11 @@ Built with Kotlin, Jetpack Compose for TV (`androidx.tv:tv-material`), DataStore
 
 ## Install
 
-Every push to `main` builds APKs in GitHub Actions. Open the latest **Build APK** run, download the `clauncher-apk` artifact, and sideload it:
+Every push to `main` publishes a new [release](../../releases/latest). Download `CLauncher.apk` from it and sideload it:
 
 ```shell
 adb connect <tv-ip>
-adb install -r app-release.apk
+adb install -r CLauncher.apk
 ```
 
 ## Make it the default home screen
