@@ -51,7 +51,7 @@ jobs:
 
       # Every push to main becomes a GitHub Release, so the APK is one click away.
       - name: Publish release
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
