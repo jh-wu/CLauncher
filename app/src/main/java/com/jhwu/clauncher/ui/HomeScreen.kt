@@ -30,12 +30,15 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.Key
@@ -57,6 +60,7 @@ import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import com.jhwu.clauncher.R
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.util.Date
 
 private const val COLUMNS = 5
@@ -73,6 +77,12 @@ fun HomeScreen(viewModel: HomeViewModel = viewModel()) {
     val activity = LocalActivity.current
 
     val gridState = rememberLazyGridState()
+    val scope = rememberCoroutineScope()
+    // The tile focus returns to when leaving the gear: the last focused one, or the first.
+    val returnTile = remember { FocusRequester() }
+    var lastFocusedPackage by remember { mutableStateOf<String?>(null) }
+    val returnPackage = lastFocusedPackage?.takeIf { pkg -> apps.any { it.packageName == pkg } }
+        ?: apps.firstOrNull()?.packageName
     // Only once the first row has scrolled away; focusing a tile nudges the grid by a few pixels.
     val scrolled by remember { derivedStateOf { gridState.firstVisibleItemIndex >= COLUMNS } }
     val backgroundBlur by animateDpAsState(if (scrolled || showSettings) 28.dp else 0.dp, label = "blur")
@@ -122,6 +132,9 @@ fun HomeScreen(viewModel: HomeViewModel = viewModel()) {
             viewModel = viewModel,
             gridState = gridState,
             movingPackage = movingPackage,
+            returnTile = returnTile,
+            returnPackage = returnPackage,
+            onTileFocused = { lastFocusedPackage = it },
         )
 
         AnimatedVisibility(
@@ -133,7 +146,19 @@ fun HomeScreen(viewModel: HomeViewModel = viewModel()) {
                 .align(Alignment.TopEnd)
                 .padding(top = 28.dp, end = 58.dp),
         ) {
-            TopBar(onOpenSettings = { showSettings = true })
+            TopBar(
+                onOpenSettings = { showSettings = true },
+                onLeave = {
+                    scope.launch {
+                        val index = apps.indexOfFirst { it.packageName == returnPackage }
+                        if (index >= 0 && gridState.layoutInfo.visibleItemsInfo.none { it.index == index }) {
+                            gridState.scrollToItem(index)
+                            withFrameNanos {}
+                        }
+                        runCatching { returnTile.requestFocus() }
+                    }
+                },
+            )
         }
 
         if (movingPackage != null) {
@@ -178,16 +203,18 @@ private fun AppGrid(
     viewModel: HomeViewModel,
     gridState: LazyGridState,
     movingPackage: String?,
+    returnTile: FocusRequester,
+    returnPackage: String?,
+    onTileFocused: (String) -> Unit,
 ) {
     val apps by viewModel.apps.collectAsStateWithLifecycle()
-    val firstTile = remember { FocusRequester() }
     var initialFocusDone by remember { mutableStateOf(false) }
     // Set when OK goes down during a move, so the key-up of the long press that started the move is ignored.
     var okArmed by remember { mutableStateOf(false) }
 
     LaunchedEffect(apps.isNotEmpty()) {
         if (apps.isNotEmpty() && !initialFocusDone) {
-            initialFocusDone = runCatching { firstTile.requestFocus() }.isSuccess
+            initialFocusDone = runCatching { returnTile.requestFocus() }.isSuccess
         }
     }
 
@@ -233,7 +260,7 @@ private fun AppGrid(
             .fillMaxSize()
             .onPreviewKeyEvent { event -> movingPackage != null && handleMoveKey(event) },
     ) {
-        itemsIndexed(apps, key = { _, app -> app.packageName }) { index, app ->
+        itemsIndexed(apps, key = { _, app -> app.packageName }) { _, app ->
             AppTile(
                 app = app,
                 isMoving = app.packageName == movingPackage,
@@ -244,14 +271,15 @@ private fun AppGrid(
                 },
                 modifier = Modifier
                     .animateItem()
-                    .then(if (index == 0) Modifier.focusRequester(firstTile) else Modifier),
+                    .onFocusChanged { if (it.hasFocus) onTileFocused(app.packageName) }
+                    .then(if (app.packageName == returnPackage) Modifier.focusRequester(returnTile) else Modifier),
             )
         }
     }
 }
 
 @Composable
-private fun TopBar(onOpenSettings: () -> Unit) {
+private fun TopBar(onOpenSettings: () -> Unit, onLeave: () -> Unit) {
     Row(
         horizontalArrangement = Arrangement.spacedBy(20.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -259,7 +287,14 @@ private fun TopBar(onOpenSettings: () -> Unit) {
         Clock()
         Surface(
             onClick = onOpenSettings,
-            modifier = Modifier.size(44.dp),
+            modifier = Modifier
+                .size(44.dp)
+                // Default focus search doesn't find a way back into the grid from here, so do it explicitly.
+                .onPreviewKeyEvent { event ->
+                    val leaving = event.key == Key.DirectionDown || event.key == Key.DirectionLeft
+                    if (leaving && event.type == KeyEventType.KeyDown) onLeave()
+                    leaving
+                },
             shape = ClickableSurfaceDefaults.shape(CircleShape),
             scale = ClickableSurfaceDefaults.scale(focusedScale = 1.15f),
             colors = ClickableSurfaceDefaults.colors(
