@@ -2,8 +2,8 @@
 """Fetches freely licensed landscape photos from Wikimedia Commons' Picture of the Day feed.
 
   candidates DIR DAYS   Save small previews of recent landscape pictures, plus candidates.json.
-  bundle LIST OUT_DIR   Download TV-sized copies of the pictures named in LIST (a JSON list of
-                        Commons file titles from candidates.json) and write credits.json.
+  bundle LIST OUT_DIR   Download TV-sized copies of the pictures in LIST (entries picked from
+                        candidates.json) and write credits.json.
 
 Runs in CI, where Wikimedia is reachable.
 """
@@ -67,19 +67,20 @@ def candidates(out_dir, days):
         json.dump(found, f, indent=1, ensure_ascii=False)
 
 
-def bundle(list_path, out_dir, days=400):
+def bundle(list_path, out_dir):
+    """LIST holds full entries copied from candidates.json, so no feed scan is needed."""
     wanted = json.load(open(list_path))
     os.makedirs(out_dir, exist_ok=True)
-    by_file = {e["file"]: e for e in entries(days) if e["file"] in wanted}
     credits = []
-    for i, title in enumerate(wanted):
-        entry = by_file[title]
+    for i, entry in enumerate(wanted):
         name = f"photo_{i + 1:02d}.jpg"
         with open(os.path.join(out_dir, name), "wb") as f:
             f.write(get(sized(entry["thumbnail"], 1920)))
-        credit = " · ".join(x for x in (entry["artist"], entry["license"], "Wikimedia Commons") if x)
-        credits.append({"asset": name, "title": entry["description"].split("\n")[0][:140], "credit": credit})
-        print(name, title)
+        artist = " ".join(entry["artist"].split())
+        credit = " · ".join(x for x in (artist, entry["license"], "Wikimedia Commons") if x)
+        title = entry["description"].split(". ")[0].split("\n")[0][:100]
+        credits.append({"asset": name, "title": title, "credit": credit})
+        print(name, entry["file"])
     with open(os.path.join(out_dir, "credits.json"), "w") as f:
         json.dump(credits, f, indent=1, ensure_ascii=False)
 

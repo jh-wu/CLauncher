@@ -65,7 +65,9 @@ import com.jhwu.clauncher.R
 import com.jhwu.clauncher.data.Background
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
 import java.util.Date
+import java.util.Locale
 
 private const val COLUMNS = 5
 
@@ -364,7 +366,12 @@ private fun PhotoCredit(title: String, credit: String) {
 @Composable
 private fun Clock() {
     val context = LocalContext.current
-    val format = remember { DateFormat.getTimeFormat(context) }
+    val timeFormat = remember { DateFormat.getTimeFormat(context) }
+    // e.g. "Fri, Oct 30", in the TV's locale.
+    val dateFormat = remember {
+        val locale = Locale.getDefault()
+        SimpleDateFormat(DateFormat.getBestDateTimePattern(locale, "EEEMMMd"), locale)
+    }
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) {
         while (true) {
@@ -372,9 +379,10 @@ private fun Clock() {
             delay(60_000 - now % 60_000)
         }
     }
+    val date = Date(now)
     Text(
-        text = format.format(Date(now)),
-        style = MaterialTheme.typography.titleLarge,
-        color = Color.White,
+        text = "${dateFormat.format(date)}  ${timeFormat.format(date)}",
+        style = MaterialTheme.typography.bodyMedium,
+        color = Color.White.copy(alpha = 0.55f),
     )
 }

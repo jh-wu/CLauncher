@@ -21,15 +21,28 @@ data class DailyPhoto(val date: String, val title: String, val credit: String, v
 
 /**
  * Wikimedia Commons' "Picture of the day", via the Wikimedia featured-content feed.
- * Freely licensed and needs no API key. Portrait or diagram-like days are skipped in favour of
- * the most recent landscape photo.
+ * Freely licensed and needs no API key. The feed also features news, history and wildlife
+ * pictures, so only landscape-shaped scenery is used; other days fall back to the most recent
+ * scenic one.
  */
 object DailyPhotoRepository {
     private const val TAG = "DailyPhoto"
     private const val FEED_URL = "https://api.wikimedia.org/feed/v1/wikipedia/en/featured/"
     private const val USER_AGENT = "CLauncher/1.0 (https://github.com/jh-wu/CLauncher)"
     private const val TARGET_WIDTH = 1920
-    private const val DAYS_TO_LOOK_BACK = 10
+    private const val DAYS_TO_LOOK_BACK = 30
+
+    private val SCENIC = listOf(
+        "landscape", "mountain", "lake", "valley", "sunset", "sunrise", "beach", "coast", "view of",
+        "panorama", "forest", "fog", "aurora", "northern lights", "snow", "winter", "river", "hills",
+        "fields", "glacier", "island", "desert", "dunes", "waterfall", "meadow", "fjord", "sea", "alps",
+        "blue hour", "national park", "vineyard", "canyon", "clouds",
+    )
+    private val UNSUITABLE = listOf(
+        "war", "airstrike", "attack", "damage", "destroyed", "killed", "victim", "massacre", "holocaust",
+        "auschwitz", "military", "soldier", "explosion", "disaster", "flood", "fire", "protest", "funeral",
+        "memorial", "nude",
+    )
 
     private val _photo = MutableStateFlow<DailyPhoto?>(null)
     val photo: StateFlow<DailyPhoto?> = _photo.asStateFlow()
@@ -71,6 +84,12 @@ object DailyPhotoRepository {
             val width = original.getInt("width")
             val height = original.getInt("height")
             if (width < height * 1.3) continue // Not a landscape photo; try the day before.
+            val text = image.optJSONObject("description")?.optString("text").orEmpty().lowercase()
+            val words = text.split(Regex("[^\\p{L}]+")).toSet()
+            // Scenic terms match word prefixes ("mountain" in "mountains"); unsuitable ones whole words only.
+            val scenic = SCENIC.any { term -> if (' ' in term) term in text else words.any { it.startsWith(term) } }
+            val unsuitable = UNSUITABLE.any { term -> term in words }
+            if (!scenic || unsuitable) continue
 
             val temp = File(context.filesDir, "daily_photo.tmp")
             val thumbnail = image.optJSONObject("thumbnail")?.optString("source").orEmpty()
@@ -85,7 +104,8 @@ object DailyPhotoRepository {
 
             val title = image.optJSONObject("description")?.optString("text")?.takeIf { it.isNotBlank() }
                 ?: image.optString("title").removePrefix("File:").substringBeforeLast('.')
-            val artist = image.optJSONObject("artist")?.optString("text")?.takeIf { it.isNotBlank() }
+            val artist = image.optJSONObject("artist")?.optString("text")
+                ?.split(Regex("\\s+"))?.joinToString(" ")?.trim()?.takeIf { it.isNotBlank() }
             val license = image.optJSONObject("license")?.optString("type")?.takeIf { it.isNotBlank() }
             val credit = listOfNotNull(artist, license, "Wikimedia Commons").joinToString(" · ")
             infoFile(context).writeText(
