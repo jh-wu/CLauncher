@@ -80,8 +80,6 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     val imagePicker: ImagePicker = ImagePicker.find(application.packageManager)
 
-    fun launch(app: LaunchableApp) = startActivity(app.launchIntent)
-
     fun openSystemSettings() = startActivity(Intent(Settings.ACTION_SETTINGS))
 
     fun startMove(packageName: String) {

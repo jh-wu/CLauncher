@@ -1,6 +1,10 @@
 package com.jhwu.clauncher.ui
 
+import android.content.Context
+import android.content.Intent
 import android.text.format.DateFormat
+import android.util.Log
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -63,6 +67,7 @@ import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import com.jhwu.clauncher.R
 import com.jhwu.clauncher.data.Background
+import com.jhwu.clauncher.data.LaunchableApp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -234,6 +239,8 @@ private fun AppGrid(
     onTileFocused: (String) -> Unit,
 ) {
     val apps by viewModel.apps.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val activity = LocalActivity.current
     var initialFocusDone by remember { mutableStateOf(false) }
     // Set when OK goes down during a move, so the key-up of the long press that started the move is ignored.
     var okArmed by remember { mutableStateOf(false) }
@@ -290,7 +297,7 @@ private fun AppGrid(
             AppTile(
                 app = app,
                 isMoving = app.packageName == movingPackage,
-                onClick = { viewModel.launch(app) },
+                onClick = { (activity ?: context).launchApp(app) },
                 onLongClick = {
                     okArmed = false
                     viewModel.startMove(app.packageName)
@@ -302,6 +309,28 @@ private fun AppGrid(
             )
         }
     }
+}
+
+/**
+ * Starts [app] from the home activity, falling back to the package's own launch intent, and says
+ * so on screen instead of failing silently.
+ */
+private fun Context.launchApp(app: LaunchableApp) {
+    val attempts = listOfNotNull(
+        Intent(app.launchIntent),
+        packageManager.getLeanbackLaunchIntentForPackage(app.packageName),
+        packageManager.getLaunchIntentForPackage(app.packageName),
+    )
+    for (intent in attempts) {
+        try {
+            startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            Log.i("CLauncher", "Launched ${app.packageName} with $intent")
+            return
+        } catch (e: Exception) {
+            Log.w("CLauncher", "Couldn't launch ${app.packageName} with $intent", e)
+        }
+    }
+    Toast.makeText(this, "Couldn't open ${app.label}", Toast.LENGTH_SHORT).show()
 }
 
 @Composable
