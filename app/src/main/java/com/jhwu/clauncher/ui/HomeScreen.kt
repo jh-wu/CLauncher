@@ -73,9 +73,8 @@ fun HomeScreen(viewModel: HomeViewModel = viewModel()) {
     val activity = LocalActivity.current
 
     val gridState = rememberLazyGridState()
-    val scrolled by remember {
-        derivedStateOf { gridState.firstVisibleItemIndex > 0 || gridState.firstVisibleItemScrollOffset > 0 }
-    }
+    // Only once the first row has scrolled away; focusing a tile nudges the grid by a few pixels.
+    val scrolled by remember { derivedStateOf { gridState.firstVisibleItemIndex >= COLUMNS } }
     val backgroundBlur by animateDpAsState(if (scrolled || showSettings) 28.dp else 0.dp, label = "blur")
 
     val openDocument = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -126,7 +125,8 @@ fun HomeScreen(viewModel: HomeViewModel = viewModel()) {
         )
 
         AnimatedVisibility(
-            visible = !scrolled && movingPackage == null,
+            // Always shown, so Up from the first row can always reach the gear.
+            visible = movingPackage == null,
             enter = fadeIn(),
             exit = fadeOut(),
             modifier = Modifier
