@@ -31,8 +31,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
+import androidx.activity.compose.BackHandler
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.tv.material3.ListItem
 import coil3.compose.AsyncImage
@@ -70,16 +69,22 @@ fun SettingsPanel(
     val firstItem = remember { FocusRequester() }
     LaunchedEffect(page) {
         if (page == Page.About && updateState == UpdateState.Idle) viewModel.checkForUpdates()
-        // The list's first item is composed during the next layout pass.
-        withFrameNanos {}
-        runCatching { firstItem.requestFocus() }
+        // The list's first item is composed during a later layout pass, so retry for a few frames.
+        repeat(10) {
+            withFrameNanos {}
+            if (runCatching { firstItem.requestFocus() }.isSuccess) return@LaunchedEffect
+        }
     }
+    BackHandler { if (page == Page.Main) onDismiss() else page = Page.Main }
 
-    Dialog(
-        onDismissRequest = { if (page == Page.Main) onDismiss() else page = Page.Main },
-        properties = DialogProperties(usePlatformDefaultWidth = false),
-    ) {
-        Box(Modifier.fillMaxSize()) {
+    // Drawn in the home screen's own window (not a dialog), so D-pad focus always lands here;
+    // the home screen makes its tiles unfocusable while this is open.
+    run {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.35f)),
+        ) {
             LazyColumn(
                 modifier = Modifier
                     .align(Alignment.CenterEnd)

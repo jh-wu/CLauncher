@@ -43,6 +43,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
@@ -148,6 +149,7 @@ fun HomeScreen(viewModel: HomeViewModel = viewModel()) {
             returnTile = returnTile,
             returnPackage = returnPackage,
             onTileFocused = { lastFocusedPackage = it },
+            focusable = !showSettings,
         )
 
         // Where the photo was taken. The full credit is in Settings → Background.
@@ -178,6 +180,7 @@ fun HomeScreen(viewModel: HomeViewModel = viewModel()) {
                 .padding(top = 28.dp, end = 58.dp),
         ) {
             TopBar(
+                focusable = !showSettings,
                 onOpenSettings = { showSettings = true },
                 onLeave = {
                     scope.launch {
@@ -237,6 +240,7 @@ private fun AppGrid(
     returnTile: FocusRequester,
     returnPackage: String?,
     onTileFocused: (String) -> Unit,
+    focusable: Boolean,
 ) {
     val apps by viewModel.apps.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -304,6 +308,7 @@ private fun AppGrid(
                 },
                 modifier = Modifier
                     .animateItem()
+                    .focusProperties { canFocus = focusable }
                     .onFocusChanged { if (it.hasFocus) onTileFocused(app.packageName) }
                     .then(if (app.packageName == returnPackage) Modifier.focusRequester(returnTile) else Modifier),
             )
@@ -334,7 +339,7 @@ private fun Context.launchApp(app: LaunchableApp) {
 }
 
 @Composable
-private fun TopBar(onOpenSettings: () -> Unit, onLeave: () -> Unit) {
+private fun TopBar(focusable: Boolean, onOpenSettings: () -> Unit, onLeave: () -> Unit) {
     Row(
         horizontalArrangement = Arrangement.spacedBy(20.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -344,6 +349,7 @@ private fun TopBar(onOpenSettings: () -> Unit, onLeave: () -> Unit) {
             onClick = onOpenSettings,
             modifier = Modifier
                 .size(36.dp)
+                .focusProperties { canFocus = focusable }
                 // Default focus search doesn't find a way back into the grid from here, so do it explicitly.
                 .onPreviewKeyEvent { event ->
                     val leaving = event.key == Key.DirectionDown || event.key == Key.DirectionLeft
