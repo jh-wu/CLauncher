@@ -12,6 +12,7 @@ import androidx.compose.ui.platform.LocalContext
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import com.jhwu.clauncher.data.Background
+import com.jhwu.clauncher.data.DailyPhoto
 import com.jhwu.clauncher.data.SettingsRepository
 import java.io.File
 
@@ -32,10 +33,41 @@ fun presetFor(id: String) = BackgroundPresets.firstOrNull { it.id == id }
     ?: BackgroundPresets.first { it.id == SettingsRepository.DEFAULT_PRESET_ID }
 
 @Composable
-fun BackgroundLayer(background: Background?, wallpaperFile: File, modifier: Modifier = Modifier) {
+fun BackgroundLayer(
+    background: Background?,
+    wallpaperFile: File,
+    dailyPhoto: DailyPhoto?,
+    modifier: Modifier = Modifier,
+) {
     when (background) {
         null -> Box(modifier.background(Color.Black))
         is Background.Preset -> Box(modifier.background(presetFor(background.id).brush))
+        Background.Daily -> {
+            if (dailyPhoto == null) {
+                // Until the first photo arrives.
+                Box(modifier.background(presetFor(SettingsRepository.DEFAULT_PRESET_ID).brush))
+            } else {
+                val context = LocalContext.current
+                val request = remember(dailyPhoto.date) {
+                    ImageRequest.Builder(context)
+                        .data(dailyPhoto.file)
+                        .memoryCacheKey("daily-${dailyPhoto.date}")
+                        .build()
+                }
+                AsyncImage(
+                    model = request,
+                    contentDescription = dailyPhoto.title,
+                    contentScale = ContentScale.Crop,
+                    modifier = modifier.background(Color.Black),
+                )
+            }
+        }
+        is Background.Bundled -> AsyncImage(
+            model = "file:///android_asset/photos/${background.asset}",
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = modifier.background(Color.Black),
+        )
         is Background.Image -> {
             val context = LocalContext.current
             val request = remember(background.version) {

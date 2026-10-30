@@ -10,14 +10,20 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.jhwu.clauncher.data.AppRepository
 import com.jhwu.clauncher.data.Background
+import com.jhwu.clauncher.data.BundledPhoto
+import com.jhwu.clauncher.data.BundledPhotos
+import com.jhwu.clauncher.data.DailyPhoto
+import com.jhwu.clauncher.data.DailyPhotoRepository
 import com.jhwu.clauncher.data.LaunchableApp
 import com.jhwu.clauncher.data.SettingsRepository
 import com.jhwu.clauncher.data.UpdateState
 import com.jhwu.clauncher.data.Updater
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -57,6 +63,20 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         settings.background.stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     val wallpaperFile: File get() = settings.wallpaperFile
+
+    val dailyPhoto: StateFlow<DailyPhoto?> = DailyPhotoRepository.photo
+
+    init {
+        // Keep the photo of the day current while it's the background; checking hourly is cheap.
+        viewModelScope.launch {
+            settings.background.collectLatest { background ->
+                while (background == Background.Daily) {
+                    DailyPhotoRepository.refresh(getApplication())
+                    delay(60 * 60 * 1000L)
+                }
+            }
+        }
+    }
 
     val imagePicker: ImagePicker = ImagePicker.find(application.packageManager)
 
@@ -119,6 +139,16 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                     .setClassName(it.packageName, it.name)
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
+    }
+
+    val bundledPhotos: List<BundledPhoto> = BundledPhotos.all(application)
+
+    fun setBundledBackground(asset: String) {
+        viewModelScope.launch { settings.setBundled(asset) }
+    }
+
+    fun setDailyBackground() {
+        viewModelScope.launch { settings.setDaily() }
     }
 
     fun setPresetBackground(id: String) {

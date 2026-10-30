@@ -29,11 +29,13 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.tv.material3.ListItem
+import coil3.compose.AsyncImage
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.jhwu.clauncher.data.Background
@@ -123,6 +125,8 @@ private fun LazyListScope.mainPage(
             detail = when (val bg = background) {
                 is Background.Preset -> presetFor(bg.id).name
                 is Background.Image -> "Your image"
+                Background.Daily -> "Photo of the day"
+                is Background.Bundled -> "Photo"
                 null -> ""
             },
             onClick = { open(Page.Background) },
@@ -162,7 +166,33 @@ private fun LazyListScope.backgroundPage(
     firstItem: FocusRequester,
     onPickImage: () -> Unit,
 ) {
-    itemsIndexed(BackgroundPresets, key = { _, preset -> "bg-${preset.id}" }) { index, preset ->
+    item(key = "bg-daily") {
+        ListItem(
+            selected = background == Background.Daily,
+            onClick = { viewModel.setDailyBackground() },
+            headlineContent = { Text("Photo of the day") },
+            supportingContent = { Text("A new photo every day from Wikimedia Commons") },
+            modifier = Modifier.focusRequester(firstItem),
+        )
+    }
+    itemsIndexed(viewModel.bundledPhotos, key = { _, photo -> "bg-photo-${photo.asset}" }) { _, photo ->
+        ListItem(
+            selected = background == Background.Bundled(photo.asset),
+            onClick = { viewModel.setBundledBackground(photo.asset) },
+            headlineContent = { Text(photo.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+            leadingContent = {
+                AsyncImage(
+                    model = photo.uri,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .size(width = 56.dp, height = 32.dp)
+                        .clip(RoundedCornerShape(6.dp)),
+                )
+            },
+        )
+    }
+    itemsIndexed(BackgroundPresets, key = { _, preset -> "bg-${preset.id}" }) { _, preset ->
         ListItem(
             selected = background == Background.Preset(preset.id),
             onClick = { viewModel.setPresetBackground(preset.id) },
@@ -175,7 +205,6 @@ private fun LazyListScope.backgroundPage(
                         .background(preset.brush),
                 )
             },
-            modifier = if (index == 0) Modifier.focusRequester(firstItem) else Modifier,
         )
     }
     if (viewModel.imagePicker != ImagePicker.None) {

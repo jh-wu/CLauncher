@@ -12,6 +12,8 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -49,6 +51,7 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -59,6 +62,7 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import com.jhwu.clauncher.R
+import com.jhwu.clauncher.data.Background
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.Date
@@ -73,6 +77,7 @@ fun HomeScreen(viewModel: HomeViewModel = viewModel()) {
     val apps by viewModel.apps.collectAsStateWithLifecycle()
     val movingPackage by viewModel.movingPackage.collectAsStateWithLifecycle()
     val background by viewModel.background.collectAsStateWithLifecycle()
+    val dailyPhoto by viewModel.dailyPhoto.collectAsStateWithLifecycle()
     var showSettings by remember { mutableStateOf(false) }
     val activity = LocalActivity.current
 
@@ -111,6 +116,7 @@ fun HomeScreen(viewModel: HomeViewModel = viewModel()) {
         BackgroundLayer(
             background = background,
             wallpaperFile = viewModel.wallpaperFile,
+            dailyPhoto = dailyPhoto,
             modifier = Modifier
                 .fillMaxSize()
                 .blur(backgroundBlur),
@@ -136,6 +142,25 @@ fun HomeScreen(viewModel: HomeViewModel = viewModel()) {
             returnPackage = returnPackage,
             onTileFocused = { lastFocusedPackage = it },
         )
+
+        // Photo credit, which the photos' licenses require.
+        val credit = when (val bg = background) {
+            Background.Daily -> dailyPhoto?.let { it.title to it.credit }
+            is Background.Bundled -> viewModel.bundledPhotos.firstOrNull { it.asset == bg.asset }
+                ?.let { it.title to it.credit }
+            else -> null
+        }
+        AnimatedVisibility(
+            visible = credit != null && !scrolled && movingPackage == null,
+            enter = fadeIn(),
+            exit = fadeOut(),
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(top = 30.dp, start = 58.dp)
+                .fillMaxWidth(0.55f),
+        ) {
+            if (credit != null) PhotoCredit(title = credit.first, credit = credit.second)
+        }
 
         AnimatedVisibility(
             // Always shown, so Up from the first row can always reach the gear.
@@ -288,7 +313,7 @@ private fun TopBar(onOpenSettings: () -> Unit, onLeave: () -> Unit) {
         Surface(
             onClick = onOpenSettings,
             modifier = Modifier
-                .size(44.dp)
+                .size(36.dp)
                 // Default focus search doesn't find a way back into the grid from here, so do it explicitly.
                 .onPreviewKeyEvent { event ->
                     val leaving = event.key == Key.DirectionDown || event.key == Key.DirectionLeft
@@ -296,10 +321,11 @@ private fun TopBar(onOpenSettings: () -> Unit, onLeave: () -> Unit) {
                     leaving
                 },
             shape = ClickableSurfaceDefaults.shape(CircleShape),
-            scale = ClickableSurfaceDefaults.scale(focusedScale = 1.15f),
+            scale = ClickableSurfaceDefaults.scale(focusedScale = 1.2f),
+            // Barely there until focused, like the tvOS status area.
             colors = ClickableSurfaceDefaults.colors(
-                containerColor = Color.White.copy(alpha = 0.15f),
-                contentColor = Color.White,
+                containerColor = Color.Transparent,
+                contentColor = Color.White.copy(alpha = 0.4f),
                 focusedContainerColor = Color.White,
                 focusedContentColor = Color.Black,
             ),
@@ -309,9 +335,29 @@ private fun TopBar(onOpenSettings: () -> Unit, onLeave: () -> Unit) {
                 contentDescription = stringResource(R.string.settings),
                 modifier = Modifier
                     .align(Alignment.Center)
-                    .size(26.dp),
+                    .size(20.dp),
             )
         }
+    }
+}
+
+@Composable
+private fun PhotoCredit(title: String, credit: String) {
+    Column {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleSmall,
+            color = Color.White.copy(alpha = 0.9f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Text(
+            text = credit,
+            style = MaterialTheme.typography.bodySmall,
+            color = Color.White.copy(alpha = 0.7f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 

@@ -19,6 +19,12 @@ sealed interface Background {
 
     /** A user-picked image, copied to [SettingsRepository.wallpaperFile]. [version] changes on every pick. */
     data class Image(val version: Long) : Background
+
+    /** Wikimedia Commons' picture of the day, refreshed daily. See [DailyPhotoRepository]. */
+    data object Daily : Background
+
+    /** One of the photos in assets/photos. See [BundledPhotos]. */
+    data class Bundled(val asset: String) : Background
 }
 
 class SettingsRepository(private val context: Context) {
@@ -38,6 +44,8 @@ class SettingsRepository(private val context: Context) {
             value.startsWith(IMAGE_PREFIX) ->
                 Background.Image(value.removePrefix(IMAGE_PREFIX).toLongOrNull() ?: 0L)
             value.startsWith(PRESET_PREFIX) -> Background.Preset(value.removePrefix(PRESET_PREFIX))
+            value == DAILY -> Background.Daily
+            value.startsWith(BUNDLED_PREFIX) -> Background.Bundled(value.removePrefix(BUNDLED_PREFIX))
             else -> Background.Preset(DEFAULT_PRESET_ID)
         }
     }
@@ -51,6 +59,14 @@ class SettingsRepository(private val context: Context) {
             val current = prefs[HIDDEN_APPS].orEmpty()
             prefs[HIDDEN_APPS] = if (hidden) current + packageName else current - packageName
         }
+    }
+
+    suspend fun setBundled(asset: String) {
+        context.dataStore.edit { it[BACKGROUND] = BUNDLED_PREFIX + asset }
+    }
+
+    suspend fun setDaily() {
+        context.dataStore.edit { it[BACKGROUND] = DAILY }
     }
 
     suspend fun setPreset(id: String) {
@@ -78,5 +94,7 @@ class SettingsRepository(private val context: Context) {
         private val HIDDEN_APPS = stringSetPreferencesKey("hidden_apps")
         private const val PRESET_PREFIX = "preset:"
         private const val IMAGE_PREFIX = "image:"
+        private const val DAILY = "daily"
+        private const val BUNDLED_PREFIX = "bundled:"
     }
 }
