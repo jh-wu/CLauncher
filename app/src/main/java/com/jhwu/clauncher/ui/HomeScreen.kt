@@ -2,6 +2,7 @@ package com.jhwu.clauncher.ui
 
 import android.text.format.DateFormat
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -20,7 +21,8 @@ import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -43,11 +45,13 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.tv.material3.ClickableSurfaceDefaults
+import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
@@ -66,6 +70,7 @@ fun HomeScreen(viewModel: HomeViewModel = viewModel()) {
     val movingPackage by viewModel.movingPackage.collectAsStateWithLifecycle()
     val background by viewModel.background.collectAsStateWithLifecycle()
     var showSettings by remember { mutableStateOf(false) }
+    val activity = LocalActivity.current
 
     val gridState = rememberLazyGridState()
     val scrolled by remember {
@@ -145,9 +150,7 @@ fun HomeScreen(viewModel: HomeViewModel = viewModel()) {
 
     if (showSettings) {
         SettingsPanel(
-            current = background,
-            canPickImage = viewModel.imagePicker != ImagePicker.None,
-            onPresetSelected = viewModel::setPresetBackground,
+            viewModel = viewModel,
             onPickImage = {
                 when (viewModel.imagePicker) {
                     ImagePicker.OpenDocument -> openDocument.launch(arrayOf("image/*"))
@@ -158,6 +161,12 @@ fun HomeScreen(viewModel: HomeViewModel = viewModel()) {
             onOpenSystemSettings = {
                 showSettings = false
                 viewModel.openSystemSettings()
+            },
+            onQuit = {
+                showSettings = false
+                // Hand over to the stock home screen first, otherwise Android just brings CLauncher back.
+                viewModel.otherHomeIntent()?.let { runCatching { activity?.startActivity(it) } }
+                activity?.finishAndRemoveTask()
             },
             onDismiss = { showSettings = false },
         )
@@ -250,8 +259,9 @@ private fun TopBar(onOpenSettings: () -> Unit) {
         Clock()
         Surface(
             onClick = onOpenSettings,
-            shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(50)),
-            scale = ClickableSurfaceDefaults.scale(focusedScale = 1.1f),
+            modifier = Modifier.size(44.dp),
+            shape = ClickableSurfaceDefaults.shape(CircleShape),
+            scale = ClickableSurfaceDefaults.scale(focusedScale = 1.15f),
             colors = ClickableSurfaceDefaults.colors(
                 containerColor = Color.White.copy(alpha = 0.15f),
                 contentColor = Color.White,
@@ -259,10 +269,12 @@ private fun TopBar(onOpenSettings: () -> Unit) {
                 focusedContentColor = Color.Black,
             ),
         ) {
-            Text(
-                text = stringResource(R.string.settings),
-                style = MaterialTheme.typography.labelLarge,
-                modifier = Modifier.padding(horizontal = 18.dp, vertical = 8.dp),
+            Icon(
+                painter = painterResource(R.drawable.ic_settings),
+                contentDescription = stringResource(R.string.settings),
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .size(26.dp),
             )
         }
     }

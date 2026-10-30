@@ -12,6 +12,8 @@ import com.jhwu.clauncher.data.AppRepository
 import com.jhwu.clauncher.data.Background
 import com.jhwu.clauncher.data.LaunchableApp
 import com.jhwu.clauncher.data.SettingsRepository
+import com.jhwu.clauncher.data.UpdateState
+import com.jhwu.clauncher.data.Updater
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -31,12 +33,24 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val _movingPackage = MutableStateFlow<String?>(null)
     val movingPackage: StateFlow<String?> = _movingPackage.asStateFlow()
 
-    val apps: StateFlow<List<LaunchableApp>> =
+    private val orderedApps =
         combine(appRepository.apps, settings.appOrder, pendingOrder) { apps, savedOrder, pending ->
             val position = (pending ?: savedOrder).withIndex().associate { (index, pkg) -> pkg to index }
             // Stable sort: apps the user never arranged (e.g. newly installed) keep label order at the end.
             apps.sortedBy { position[it.packageName] ?: Int.MAX_VALUE }
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+        }
+
+    val hiddenApps: StateFlow<Set<String>> =
+        settings.hiddenApps.stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
+
+    /** Every installed app, hidden or not, for the Apps settings page. */
+    val allApps: StateFlow<List<LaunchableApp>> =
+        orderedApps.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** The apps shown on the home screen. */
+    val apps: StateFlow<List<LaunchableApp>> =
+        combine(allApps, hiddenApps) { apps, hidden -> apps.filter { it.packageName !in hidden } }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     /** Null until loaded, so the default background doesn't flash before the saved one. */
     val background: StateFlow<Background?> =
@@ -66,12 +80,45 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun finishMove() {
-        val order = pendingOrder.value ?: return
+        val visibleOrder = pendingOrder.value ?: return
         _movingPackage.value = null
         viewModelScope.launch {
-            settings.setAppOrder(order)
+            // Hidden apps keep their relative order, after the visible ones.
+            val hidden = allApps.value.map { it.packageName }.filter { it in hiddenApps.value }
+            settings.setAppOrder(visibleOrder + hidden)
             pendingOrder.value = null
         }
+    }
+
+    fun setHidden(packageName: String, hidden: Boolean) {
+        viewModelScope.launch { settings.setHidden(packageName, hidden) }
+    }
+
+    val updateState: StateFlow<UpdateState> = Updater.state
+
+    val versionName: String = Updater.installedVersionName(application)
+
+    fun checkForUpdates() {
+        viewModelScope.launch { Updater.check(getApplication()) }
+    }
+
+    fun installUpdate(update: UpdateState.Available) {
+        viewModelScope.launch { Updater.install(getApplication(), update) }
+    }
+
+    /** The home screen to hand over to when quitting, normally the stock Google TV launcher. */
+    fun otherHomeIntent(): Intent? {
+        val app = getApplication<Application>()
+        return app.packageManager
+            .queryIntentActivities(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME), 0)
+            .map { it.activityInfo }
+            .firstOrNull { it.packageName != app.packageName }
+            ?.let {
+                Intent(Intent.ACTION_MAIN)
+                    .addCategory(Intent.CATEGORY_HOME)
+                    .setClassName(it.packageName, it.name)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
     }
 
     fun setPresetBackground(id: String) {

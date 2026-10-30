@@ -4,7 +4,11 @@ A clean, Apple TV-style home screen for Google TV / Android TV 12+.
 
 - A grid of rounded 16:9 app tiles that lift and glow when focused, over a full-screen wallpaper.
 - **Reorder apps:** long-press OK on a tile. It starts to wiggle; move it with the D-pad and press OK (or Back) to drop it.
-- **Change the background:** open **Settings** (top right, or the Menu button on the remote) and pick a gradient, or choose your own image if your TV has a file picker.
+- **Settings** (the gear at the top right, or the Menu button on the remote):
+  - **Background:** pick a gradient, or choose your own image if your TV has a file picker.
+  - **Apps:** show or hide any app on the home screen.
+  - **About & updates:** see the installed version, and download and install the latest release.
+  - **Quit CLauncher:** go back to the stock Google TV home screen.
 - Shows TV apps and sideloaded phone apps, and updates live as apps are installed or removed.
 
 Built with Kotlin, Jetpack Compose for TV (`androidx.tv:tv-material`), DataStore and Coil. Min SDK 31 (Android 12).
@@ -17,6 +21,23 @@ Every push to `main` publishes a new [release](../../releases/latest). Download 
 adb connect <tv-ip>
 adb install -r CLauncher.apk
 ```
+
+## Release signing (one-time setup)
+
+In-app updates only install over the current app when every release is signed with the same key. Create a keystore once on any computer with Java:
+
+```shell
+keytool -genkeypair -keystore clauncher.jks -alias clauncher -keyalg RSA -keysize 4096 \
+  -validity 10000 -storetype PKCS12 -dname "CN=CLauncher"
+base64 -w0 clauncher.jks   # macOS: base64 -i clauncher.jks
+```
+
+Then add two repository secrets under **Settings → Secrets and variables → Actions**:
+
+- `RELEASE_KEYSTORE_BASE64`: the base64 output
+- `RELEASE_KEYSTORE_PASSWORD`: the password you chose
+
+Keep `clauncher.jks` somewhere safe. Without these secrets the build still works, but each release is signed with a throwaway key, so updating means uninstalling first.
 
 ## Make it the default home screen
 

@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -28,6 +29,9 @@ class SettingsRepository(private val context: Context) {
         prefs[APP_ORDER]?.split('\n')?.filter { it.isNotEmpty() }.orEmpty()
     }
 
+    /** Package names the user chose not to show on the home screen. */
+    val hiddenApps: Flow<Set<String>> = context.dataStore.data.map { it[HIDDEN_APPS].orEmpty() }
+
     val background: Flow<Background> = context.dataStore.data.map { prefs ->
         val value = prefs[BACKGROUND].orEmpty()
         when {
@@ -40,6 +44,13 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setAppOrder(packageNames: List<String>) {
         context.dataStore.edit { it[APP_ORDER] = packageNames.joinToString("\n") }
+    }
+
+    suspend fun setHidden(packageName: String, hidden: Boolean) {
+        context.dataStore.edit { prefs ->
+            val current = prefs[HIDDEN_APPS].orEmpty()
+            prefs[HIDDEN_APPS] = if (hidden) current + packageName else current - packageName
+        }
     }
 
     suspend fun setPreset(id: String) {
@@ -64,6 +75,7 @@ class SettingsRepository(private val context: Context) {
         const val DEFAULT_PRESET_ID = "midnight"
         private val APP_ORDER = stringPreferencesKey("app_order")
         private val BACKGROUND = stringPreferencesKey("background")
+        private val HIDDEN_APPS = stringSetPreferencesKey("hidden_apps")
         private const val PRESET_PREFIX = "preset:"
         private const val IMAGE_PREFIX = "image:"
     }
