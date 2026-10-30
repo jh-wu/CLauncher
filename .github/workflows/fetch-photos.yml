@@ -1,0 +1,44 @@
+name: Fetch bundled photos
+
+# Manual helper for picking the built-in background photos (Wikimedia is reachable from CI).
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "candidates: previews on the photo-candidates branch; bundle: commit tools/bundled_photos.json picks to main"
+        required: true
+        default: candidates
+        type: choice
+        options: [candidates, bundle]
+
+permissions:
+  contents: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Fetch
+        run: |
+          if [ "${{ inputs.mode }}" = candidates ]; then
+            python3 tools/fetch_photos.py candidates photo-candidates 400
+          else
+            python3 tools/fetch_photos.py bundle tools/bundled_photos.json app/src/main/assets/photos
+          fi
+
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if [ "${{ inputs.mode }}" = candidates ]; then
+            git checkout -B photo-candidates
+            git add photo-candidates
+            git commit -m "Photo candidates"
+            git push -f origin photo-candidates
+          else
+            git add app/src/main/assets/photos
+            git commit -m "Update bundled background photos"
+            git push origin HEAD:main
+          fi
