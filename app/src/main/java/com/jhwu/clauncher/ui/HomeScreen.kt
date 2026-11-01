@@ -3,6 +3,7 @@ package com.jhwu.clauncher.ui
 import android.content.Context
 import android.content.Intent
 import android.text.format.DateFormat
+import android.os.SystemClock
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
@@ -66,6 +67,7 @@ import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
+import com.jhwu.clauncher.HomeOverrideService
 import com.jhwu.clauncher.R
 import com.jhwu.clauncher.data.Background
 import com.jhwu.clauncher.data.LaunchableApp
@@ -321,6 +323,7 @@ private fun Context.launchApp(app: LaunchableApp) {
     )
     for (intent in attempts) {
         try {
+            HomeOverrideService.lastAppLaunch = SystemClock.elapsedRealtime()
             startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             Log.i("CLauncher", "Launched ${app.packageName} with $intent")
             return

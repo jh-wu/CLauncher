@@ -32,11 +32,16 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.activity.compose.BackHandler
+import android.content.Intent
+import android.provider.Settings
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.tv.material3.ListItem
 import coil3.compose.AsyncImage
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
+import com.jhwu.clauncher.HomeOverrideService
 import com.jhwu.clauncher.data.Background
 import com.jhwu.clauncher.data.LaunchableApp
 import com.jhwu.clauncher.data.UpdateState
@@ -148,6 +153,35 @@ private fun LazyListScope.mainPage(
             title = Page.About.title,
             detail = "Version ${viewModel.versionName}",
             onClick = { open(Page.About) },
+        )
+    }
+    item(key = "main-home") {
+        val context = LocalContext.current
+        var enabled by remember { mutableStateOf(HomeOverrideService.isEnabled(context)) }
+        // Re-check when coming back from Android's accessibility settings.
+        LifecycleResumeEffect(Unit) {
+            enabled = HomeOverrideService.isEnabled(context)
+            onPauseOrDispose {}
+        }
+        ListItem(
+            selected = false,
+            onClick = {
+                runCatching {
+                    context.startActivity(
+                        Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                    )
+                }
+            },
+            headlineContent = { Text("Replace Google TV home") },
+            supportingContent = {
+                Text(
+                    if (enabled) {
+                        "On"
+                    } else {
+                        "Off. Press OK, then turn on \"CLauncher: replace Google TV home\""
+                    },
+                )
+            },
         )
     }
     item(key = "main-system") {

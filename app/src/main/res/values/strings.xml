@@ -5,4 +5,6 @@
     <string name="choose_image">Choose an image…</string>
     <string name="move_hint">Use the D-pad to move · Press OK to finish</string>
     <string name="system_settings">Android TV settings</string>
+    <string name="home_override_label">CLauncher: replace Google TV home</string>
+    <string name="home_override_description">Shows CLauncher whenever the Google TV home screen opens, for example when you press Home. CLauncher only watches which home screen is open and reads nothing else.</string>
 </resources>

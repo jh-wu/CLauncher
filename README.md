@@ -40,19 +40,16 @@ Keep `clauncher.jks` somewhere safe. Without these secrets the build still works
 
 ## Make it the default home screen
 
-The easiest and safest way is to remap the remote's Home button to CLauncher with an app such as Button Mapper.
+In CLauncher, open the gear → **Replace Google TV home** and turn on "CLauncher: replace Google TV home" in Android's accessibility settings. From then on, whenever the Google TV home screen opens (Home button, startup, leaving an app), CLauncher takes its place.
 
-On Chromecast with Google TV you can disable the stock launcher instead. Do this at your own risk:
+Don't disable the stock launcher (`com.google.android.apps.tv.launcherx`). Current Google TV versions route every app launch through it, so with it disabled, apps can't be opened from any other launcher. If you already disabled it, re-enable it:
 
 ```shell
-adb shell pm disable-user --user 0 com.google.android.apps.tv.launcherx
-adb shell pm disable-user --user 0 com.google.android.tungsten.setupwraith
-# Undo:
 adb shell pm enable com.google.android.apps.tv.launcherx
 adb shell pm enable com.google.android.tungsten.setupwraith
 ```
 
-Then press Home and choose CLauncher.
+To start CLauncher from a computer: `adb shell am start -n com.jhwu.clauncher/.MainActivity`
 
 ## Build locally
 

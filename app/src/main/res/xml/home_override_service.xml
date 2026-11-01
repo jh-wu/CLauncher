@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Watches only the stock home screens: Google TV, Android TV, and the older Leanback launcher. -->
+<accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:accessibilityEventTypes="typeWindowStateChanged"
+    android:accessibilityFeedbackType="feedbackGeneric"
+    android:canRetrieveWindowContent="false"
+    android:description="@string/home_override_description"
+    android:notificationTimeout="100"
+    android:packageNames="com.google.android.apps.tv.launcherx,com.google.android.tvlauncher,com.google.android.leanbacklauncher" />
