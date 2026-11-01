@@ -87,7 +87,6 @@ fun HomeScreen(viewModel: HomeViewModel = viewModel()) {
     val background by viewModel.background.collectAsStateWithLifecycle()
     val dailyPhoto by viewModel.dailyPhoto.collectAsStateWithLifecycle()
     var showSettings by remember { mutableStateOf(false) }
-    val activity = LocalActivity.current
 
     val gridState = rememberLazyGridState()
     val scope = rememberCoroutineScope()
@@ -220,12 +219,6 @@ fun HomeScreen(viewModel: HomeViewModel = viewModel()) {
             onOpenSystemSettings = {
                 showSettings = false
                 viewModel.openSystemSettings()
-            },
-            onQuit = {
-                showSettings = false
-                // Hand over to the stock home screen first, otherwise Android just brings CLauncher back.
-                viewModel.otherHomeIntent()?.let { runCatching { activity?.startActivity(it) } }
-                activity?.finishAndRemoveTask()
             },
             onDismiss = { showSettings = false },
         )

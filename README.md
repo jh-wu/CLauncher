@@ -8,7 +8,6 @@ A clean, Apple TV-style home screen for Google TV / Android TV 12+.
   - **Background:** pick a gradient, or choose your own image if your TV has a file picker.
   - **Apps:** show or hide any app on the home screen.
   - **About & updates:** see the installed version, and download and install the latest release.
-  - **Quit CLauncher:** go back to the stock Google TV home screen.
 - Shows TV apps and sideloaded phone apps, and updates live as apps are installed or removed.
 
 Built with Kotlin, Jetpack Compose for TV (`androidx.tv:tv-material`), DataStore and Coil. Min SDK 31 (Android 12).
