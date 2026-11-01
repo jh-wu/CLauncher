@@ -124,13 +124,17 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch { Updater.install(getApplication(), update) }
     }
 
-    /** The home screen to hand over to when quitting, normally the stock Google TV launcher. */
+    /**
+     * The home screen to hand over to when quitting, normally the stock Google TV launcher.
+     * Null when that launcher is disabled: disabled apps don't show up in the query, and the
+     * setup and settings fallbacks that remain aren't real home screens.
+     */
     fun otherHomeIntent(): Intent? {
         val app = getApplication<Application>()
         return app.packageManager
             .queryIntentActivities(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME), 0)
             .map { it.activityInfo }
-            .firstOrNull { it.packageName != app.packageName }
+            .firstOrNull { it.packageName != app.packageName && it.packageName !in NOT_A_HOME_SCREEN }
             ?.let {
                 Intent(Intent.ACTION_MAIN)
                     .addCategory(Intent.CATEGORY_HOME)
@@ -167,6 +171,12 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     private companion object {
         const val TAG = "HomeViewModel"
+        val NOT_A_HOME_SCREEN = setOf(
+            "com.google.android.tungsten.setupwraith",
+            "com.android.tv.settings",
+            "com.android.settings",
+            "com.android.provision",
+        )
     }
 }
 

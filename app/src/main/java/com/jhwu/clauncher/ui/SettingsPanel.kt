@@ -67,6 +67,8 @@ fun SettingsPanel(
     val hidden by viewModel.hiddenApps.collectAsStateWithLifecycle()
     val updateState by viewModel.updateState.collectAsStateWithLifecycle()
     val firstItem = remember { FocusRequester() }
+    // Quit only makes sense while another home screen (the Google TV one) is enabled.
+    val canQuit = remember { viewModel.otherHomeIntent() != null }
     LaunchedEffect(page) {
         if (page == Page.About && updateState == UpdateState.Idle) viewModel.checkForUpdates()
         // The list's first item is composed during a later layout pass, so retry for a few frames.
@@ -103,7 +105,8 @@ fun SettingsPanel(
                 }
                 when (page) {
                     Page.Main -> mainPage(
-                        viewModel, background, hidden.size, firstItem, { page = it }, onOpenSystemSettings, onQuit,
+                        viewModel, background, hidden.size, firstItem, { page = it }, onOpenSystemSettings,
+                        onQuit.takeIf { canQuit },
                     )
                     Page.Background -> backgroundPage(viewModel, background, firstItem, onPickImage)
                     Page.Apps -> appsPage(viewModel, allApps, hidden, firstItem)
@@ -122,7 +125,7 @@ private fun LazyListScope.mainPage(
     firstItem: FocusRequester,
     open: (Page) -> Unit,
     onOpenSystemSettings: () -> Unit,
-    onQuit: () -> Unit,
+    onQuit: (() -> Unit)?,
 ) {
     item(key = "main-background") {
         NavItem(
@@ -155,7 +158,7 @@ private fun LazyListScope.mainPage(
     item(key = "main-system") {
         NavItem(title = "Android TV settings", detail = null, onClick = onOpenSystemSettings)
     }
-    item(key = "main-quit") {
+    if (onQuit != null) item(key = "main-quit") {
         ListItem(
             selected = false,
             onClick = onQuit,
