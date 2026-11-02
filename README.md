@@ -40,7 +40,19 @@ Keep `clauncher.jks` somewhere safe. Without these secrets the build still works
 
 ## Make it the default home screen
 
-In CLauncher, open the gear → **Replace Google TV home** and turn on "CLauncher: replace Google TV home" in Android's accessibility settings. From then on, whenever the Google TV home screen opens (Home button, startup, leaving an app), CLauncher takes its place.
+Turn on the "CLauncher: replace Google TV home" accessibility service. From then on, the Home button, startup and leaving an app all land on CLauncher instead of the Google TV home screen. Gear → **Replace Google TV home** shows whether it's on.
+
+Some Google TV builds don't list sideloaded services in their accessibility settings. Enable it once with adb instead. Check what's already enabled first, so you don't switch anything off:
+
+```shell
+adb shell settings get secure enabled_accessibility_services
+# If that printed null:
+adb shell settings put secure enabled_accessibility_services com.jhwu.clauncher/com.jhwu.clauncher.HomeOverrideService
+# Otherwise append it to the existing list, separated by a colon.
+adb shell settings put secure accessibility_enabled 1
+```
+
+The setting survives reboots and CLauncher updates, so developer mode isn't needed afterwards.
 
 Don't disable the stock launcher (`com.google.android.apps.tv.launcherx`). Current Google TV versions route every app launch through it, so with it disabled, apps can't be opened from any other launcher. If you already disabled it, re-enable it:
 
