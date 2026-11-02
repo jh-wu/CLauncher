@@ -1,8 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Watches only the stock home screens: Google TV, Android TV, and the older Leanback launcher. -->
+<!-- Window events only from the stock home screens (Google TV, Android TV, older Leanback),
+     plus key filtering so the Home button can be caught. -->
 <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
     android:accessibilityEventTypes="typeWindowStateChanged"
     android:accessibilityFeedbackType="feedbackGeneric"
+    android:accessibilityFlags="flagRequestFilterKeyEvents"
+    android:canRequestFilterKeyEvents="true"
     android:canRetrieveWindowContent="false"
     android:description="@string/home_override_description"
     android:notificationTimeout="100"
